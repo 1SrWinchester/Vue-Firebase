@@ -1,6 +1,8 @@
 <script>
-import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc, onSnapshot } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc, onSnapshot, query, where } from "firebase/firestore";
+import { auth, db } from "@/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+
 
 export default {
   name: 'HomeView',
@@ -9,17 +11,19 @@ export default {
       inputCity: "",
       inputCountry: "",
       cities: [],
-      editingCity: null
+      editingCity: null,
+      // Este mensaje se utiliza para mostrar el estado de autenticación del usuario
+      message: "",
+      // Este objeto almacena la información del usuario autenticado
+      user: null
     }
   },
   methods: {
-
     // ++++++ Añadir datos en firestore
     // Este método añade una nueva ciudad a la colección "viajes" en Firestore
     // Si se está editando una ciudad, actualiza los datos en lugar de añadir una nueva
     // import { addDoc }
     async addCity() {
-
       // Validación de campos vacíos
       // Si los campos de ciudad o país están vacíos, muestra un mensaje de alerta
       if (this.inputCity === "" || this.inputCountry === "") {
@@ -32,29 +36,30 @@ export default {
         this.updateCity()
       } else {
         console.log("añadir ciudad", this.inputCity);
-
         const docRef = await addDoc(collection(db, "viajes"), {
           title: this.inputCity,
           country: this.inputCountry,
+          owner: auth.currentUser.uid // Almacena el ID del usuario autenticado
+          // owner: auth.currentUser.email // Almacena el email del usuario autenticado
         });
         console.log("Document written with ID: ", docRef.id);
-
       }
-
-
       this.inputCity = "";
       this.inputCountry = "";
       this.editingCity = null
       this.getCities();
-
     },
     // ++++++ Obtener datos de firestore
     // Este método obtiene los datos de la colección "viajes" y los almacena en el array "cities"
-    async getCities() {
+    
       // import { collection, onSnapshot }
       // Utilizando onSnapshot para escuchar los cambios en tiempo real
+      async getCities() {
       const viajesRef = collection(db, "viajes");
-      onSnapshot(viajesRef, (snapshot) => {
+
+      const q = query(viajesRef, where("owner", "==", auth.currentUser.uid));
+
+      onSnapshot(q, (snapshot) => {
         this.cities = [];
         snapshot.forEach((doc) => {
           this.cities.push({
@@ -71,7 +76,6 @@ export default {
       // const todosLosViajes = await getDocs(viajes);
       // todosLosViajes.forEach((doc) => {
       //  console.log(doc.id, " => ", doc.data());
-
         // this.cities.push({
         //  id: doc.id,
         //  ...doc.data()
@@ -113,17 +117,34 @@ export default {
       const citiRef = doc(db, "viajes", id);
       await deleteDoc(citiRef);
       await this.getCities();
+    },
+    logout() {
+      auth.signOut().then(() => {
+       this.$router.push('/login');
+      })
     }
   },
   // Cuando el componente o vista está lista para el usuario, es visible, se ejecuta el método mounted
   mounted() {
     this.getCities();
+    // Verificar el estado de autenticación al montar el componente
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        this.user = user;
+        this.message = "usuario logueado: " + user.email;
+      } else {
+        this.message = "No hay usuario logueado";
+      }
+    });
   }
 }
 </script>
 
 <template>
   <main style="margin-top: 100px;">
+
+    <h1>{{ message }}</h1>
+    <button v-if="user != null " @click="logout">Cerrar sesión</button>
 
     <div>
       <input v-model="inputCity" placeholder="Ciudad" type="text">
