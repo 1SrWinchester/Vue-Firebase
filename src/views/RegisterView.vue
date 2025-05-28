@@ -31,6 +31,7 @@ export default {
                     const errorMessage = error.message;
                     this.message = errorMessage;
                     // Aquí puedes mostrar un mensaje de error al usuario
+                    // aaaaaaaaaaaaaaaaaaaaaaa
                 });
         }
     }
